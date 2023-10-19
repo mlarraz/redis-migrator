@@ -13,6 +13,5 @@ require (
 
 require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/stretchr/testify v1.7.0 // indirect
 	golang.org/x/sys v0.13.0 // indirect
 )
