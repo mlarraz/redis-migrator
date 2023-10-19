@@ -7,10 +7,11 @@ import (
 )
 
 type Configuration struct {
-	OldRedis          Redis `yaml:"old_redis"`
-	ConcurrentWorkers uint  `yaml:"concurrent_workers"`
-	NewRedis          Redis `yaml:"new_redis"`
-	Databases         []int `yaml:"migration_databases"`
+	OldRedis             Redis `yaml:"old_redis"`
+	ConcurrentWorkers    uint  `yaml:"concurrent_workers"`
+	NewRedis             Redis `yaml:"new_redis"`
+	Databases            []int `yaml:"migration_databases"`
+	ClearBeforeMigration bool  `yaml:"clear_before_migration"`
 }
 
 type Redis struct {

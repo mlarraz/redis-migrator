@@ -24,6 +24,14 @@ func MigrateRedisData(ctx context.Context, conf config.Configuration) error {
 	for _, database := range conf.Databases {
 		oldRedisPool := client.NewPool(conf.OldRedis, database, int(conf.ConcurrentWorkers), time.Second*10)
 		newRedisPool := client.NewPool(conf.NewRedis, database, int(conf.ConcurrentWorkers), time.Second*10)
+
+		if conf.ClearBeforeMigration {
+			if _, err := newRedisPool.Get().Do("FLUSHDB"); err != nil {
+				return fmt.Errorf("[DB %d] Error while FLUSHDB", database)
+			}
+			logrus.Infof("[DB %d] Cleared DB before migration", database)
+		}
+
 		if err := migrateDB(ctx, oldRedisPool, newRedisPool, database, concurrentWorkers); err != nil {
 			return errors.Join(err, fmt.Errorf("[DB %d] Error while migrating", database))
 		}
