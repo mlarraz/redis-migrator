@@ -31,7 +31,11 @@ go install github.com/huantt/redis-migrator@latest
 
 #### Using Docker
 ```shell
-docker run --rm -v /path/to/migrate.yaml:/data/migrate.yaml huanttok/redis-migrator migrate --config.file=/data/migrate.yaml \
+docker run \
+--rm \
+-v /path/to/migrate.yaml:/data/migrate.yaml \
+ huanttok/redis-migrator migrate \
+ --config.file=/data/migrate.yaml \
 --log.level=debug
 ```
 
