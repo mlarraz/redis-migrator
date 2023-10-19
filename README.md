@@ -40,7 +40,7 @@ docker run \
 --log.level=debug
 ```
 
-To call `localhost` while using Docker, use `host.docker.internal` instead while using Docker.
+To call `localhost` while using Docker, use `host.docker.internal` instead.
 
 ### Configuration
 
