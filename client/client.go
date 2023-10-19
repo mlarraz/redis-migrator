@@ -3,7 +3,7 @@ package client
 import (
 	"fmt"
 	"github.com/gomodule/redigo/redis"
-	"redis-migrator/config"
+	"github.com/huantt/redis-migrator/config"
 	"time"
 )
 

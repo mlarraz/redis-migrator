@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gomodule/redigo/redis"
+	"github.com/huantt/redis-migrator/client"
+	"github.com/huantt/redis-migrator/config"
+	"github.com/huantt/redis-migrator/pkg/concurrency"
 	"github.com/sirupsen/logrus"
-	"redis-migrator/client"
-	"redis-migrator/config"
-	"redis-migrator/pkg/concurrency"
 	"time"
 )
 
@@ -27,7 +27,7 @@ func MigrateRedisData(ctx context.Context, conf config.Configuration) error {
 
 		if conf.ClearBeforeMigration {
 			if _, err := newRedisPool.Get().Do("FLUSHDB"); err != nil {
-				return fmt.Errorf("[DB %d] Error while FLUSHDB", database)
+				return errors.Join(err, fmt.Errorf("[DB %d] Error while FLUSHDB", database))
 			}
 			logrus.Infof("[DB %d] Cleared DB before migration", database)
 		}

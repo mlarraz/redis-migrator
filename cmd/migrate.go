@@ -2,9 +2,9 @@ package cmd
 
 import (
 	"context"
+	"github.com/huantt/redis-migrator/config"
+	"github.com/huantt/redis-migrator/migrator"
 	"github.com/spf13/cobra"
-	"redis-migrator/config"
-	"redis-migrator/migrator"
 )
 
 var migrateCmd = &cobra.Command{

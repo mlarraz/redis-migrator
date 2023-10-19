@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"redis-migrator/cmd"
+	"github.com/huantt/redis-migrator/cmd"
 )
 
 var (

@@ -2,3 +2,4 @@ redis-migrator
 dist
 .test/
 .idea
+dist/

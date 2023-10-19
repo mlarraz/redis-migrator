@@ -1,4 +1,4 @@
-module redis-migrator
+module github.com/huantt/redis-migrator
 
 go 1.21
 
