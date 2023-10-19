@@ -34,7 +34,7 @@ func MigrateRedisData(ctx context.Context, conf config.Configuration) error {
 func migrateDB(ctx context.Context, oldRedisPool, newRedisPool *redis.Pool, db int, concurrentWorkers uint) error {
 	keys, err := redis.Strings(oldRedisPool.Get().Do("KEYS", "*"))
 	if err != nil {
-		return fmt.Errorf("[DB %d] Error while listing redis keys %v", db, err)
+		return fmt.Errorf("[DB %d] Error while listing redis keys '%v'", db, err)
 	}
 	if len(keys) == 0 {
 		return nil
@@ -42,13 +42,14 @@ func migrateDB(ctx context.Context, oldRedisPool, newRedisPool *redis.Pool, db i
 
 	workerPool := concurrency.NewWorkerPool(concurrentWorkers)
 	logrus.Infof("[DB %d] Migrating %d keys", db, len(keys))
-	for i, key := range keys {
+	for i := range keys {
 		index := i
 		workerPool.AddJob(func(ctx context.Context) error {
-			if err := migrateKey(oldRedisPool.Get(), newRedisPool.Get(), key); err != nil {
-				return errors.Join(err, fmt.Errorf("[DB %d] Error while migrating key %s", db, key))
+			if err := migrateKey(oldRedisPool.Get(), newRedisPool.Get(), keys[index]); err != nil {
+				return errors.Join(err, fmt.Errorf("[DB %d] Error while migrating key %s", db, keys[index]))
+			} else {
+				logrus.Debugf("[DB %d] Migrated key #%d in %d keys", db, index, len(keys))
 			}
-			logrus.Debugf("[DB %d] Migrated key #%d in %d keys", db, index, len(keys))
 			return nil
 		})
 	}
@@ -67,43 +68,53 @@ func migrateDB(ctx context.Context, oldRedisPool, newRedisPool *redis.Pool, db i
 }
 
 func migrateKey(oldClient redis.Conn, newClient redis.Conn, key string) error {
+	logrus.Debugf("Migrating key '%s'", key)
+	defer func() {
+		err := newClient.Flush()
+		if err != nil {
+			logrus.Errorf("Error while flushing connection: %v", err)
+		}
+	}()
 	keyType, err := redis.String(oldClient.Do("TYPE", key))
 	if err != nil {
 		return fmt.Errorf("failed to get the key type %s: %v", key, err)
 	}
 	switch keyType {
 	case "string":
-		migrateStringKeys(oldClient, newClient, key)
+		return migrateString(oldClient, newClient, key)
 	case "hash":
-		migrateHashKeys(oldClient, newClient, key)
+		return migrateHash(oldClient, newClient, key)
 	case "list":
-		migrateListKeys(oldClient, newClient, key)
+		return migrateList(oldClient, newClient, key)
+	case "set":
+		return migrateSet(oldClient, newClient, key)
+	case "zset":
+		return migrateSortedSet(oldClient, newClient, key)
 	default:
 		return errors.New(fmt.Sprintf("key type is not supported: %s", keyType))
 	}
-	//TODO: Support set, sorted set
-	//TODO: Run concurrently
-	//TODO: Support ignore error
+}
+
+func migrateList(oldClient redis.Conn, newClient redis.Conn, key string) error {
+	elements, err := redis.Strings(oldClient.Do("LRANGE", key, 0, -1))
+	if err != nil {
+		logrus.Errorf("Not able to get the elements for key %s: %v", key, err)
+	}
+	var data = []interface{}{key}
+	for i := len(elements) - 1; i >= 0; i-- {
+		data = append(data, elements[i])
+	}
+	// LPUSH: Elements are inserted one after the other to the head of the list, from the leftmost element to the rightmost element.
+	// So for instance the command LPUSH mylist a b c will result into a list containing c as first element, b as second element and a as third element
+	_, err = newClient.Do("LPUSH", data...)
+	if err != nil {
+		return fmt.Errorf("error while pushing list keys %v", err)
+	}
+	logrus.Tracef("Migrated %s key with elements: %v", key, elements)
 	return nil
 }
 
-func migrateListKeys(oldClient redis.Conn, newClient redis.Conn, key string) {
-	value, err := redis.Strings(oldClient.Do("LPOP", key))
-	if err != nil {
-		logrus.Errorf("Not able to get the value for key %s: %v", key, err)
-	}
-	var data = []interface{}{key}
-	for _, v := range value {
-		data = append(data, v)
-	}
-	_, err = newClient.Do("LPUSH", data...)
-	if err != nil {
-		logrus.Errorf("Error while pushing list keys %v", err)
-	}
-	logrus.Tracef("Migrated %s key with value: %v", key, data)
-}
-
-func migrateHashKeys(oldClient redis.Conn, newClient redis.Conn, key string) {
+func migrateHash(oldClient redis.Conn, newClient redis.Conn, key string) error {
 	value, err := redis.StringMap(oldClient.Do("HGETALL", key))
 	if err != nil {
 		logrus.Errorf("Not able to get the value for key %s: %v", key, err)
@@ -114,19 +125,54 @@ func migrateHashKeys(oldClient redis.Conn, newClient redis.Conn, key string) {
 	}
 	_, err = newClient.Do("HMSET", data...)
 	if err != nil {
-		logrus.Errorf("Error while pushing list keys %v", err)
+		return fmt.Errorf("HMSET error: %v", err)
 	}
 	logrus.Tracef("Migrated %s key with value: %v", key, data)
+	return nil
 }
 
-func migrateStringKeys(oldClient redis.Conn, newClient redis.Conn, key string) {
+func migrateString(oldClient redis.Conn, newClient redis.Conn, key string) error {
 	value, err := redis.String(oldClient.Do("GET", key))
 	if err != nil {
 		logrus.Errorf("Not able to get the value for key %s: %v", key, err)
 	}
 	_, err = newClient.Do("SET", key, value)
 	if err != nil {
-		logrus.Errorf("Error while pushing list keys %v", err)
+		return fmt.Errorf("SET error: %v", err)
 	}
 	logrus.Tracef("Migrated %s key with value: %v", key, value)
+	return nil
+}
+
+func migrateSet(oldClient redis.Conn, newClient redis.Conn, key string) error {
+	members, err := redis.Strings(oldClient.Do("SMEMBERS", key))
+	if err != nil {
+		logrus.Errorf("SMEMBERS %s error: %s", key, err)
+	}
+	for i := 0; i < len(members); i++ {
+		err := newClient.Send("SADD", key, members[i])
+		if err != nil {
+			return fmt.Errorf("SADD error: %v", err)
+		}
+	}
+
+	logrus.Tracef("Migrated %s key with value: %v", key, members)
+	return nil
+}
+
+func migrateSortedSet(oldClient redis.Conn, newClient redis.Conn, key string) error {
+	members, err := redis.Strings(oldClient.Do("ZRANGE", key, "0", "-1", "WITHSCORES"))
+	if err != nil {
+		logrus.Errorf("ZRANGE %s error: %s", key, err)
+	}
+	// members will be like ["member1", "score1", "member2", "score2"]
+	for i := 0; i < len(members); i += 2 {
+		err := newClient.Send("ZADD", key, members[i+1], members[i])
+		if err != nil {
+			return fmt.Errorf("ZADD error: %v", err)
+		}
+	}
+
+	logrus.Tracef("Migrated %s key with value: %v", key, members)
+	return nil
 }
