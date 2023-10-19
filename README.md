@@ -1,7 +1,7 @@
 ## About
 [![GitHub Super-Linter](https://github.com/opstree/redis-migration/workflows/CI%20Pipeline/badge.svg)](https://github.com/opstree/redis-migration)
 [![made-with-Go](https://img.shields.io/badge/Made%20with-Go-1f425f.svg)](http://golang.org)
-![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/opstree/redis-migration)
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/huantt/redis-migrator)
 [![Go Report Card](https://goreportcard.com/badge/github.com/opstree/redis-migration)](https://goreportcard.com/report/github.com/opstree/redis-migration)
 [![Apache License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/opstree/redis-migration)
@@ -13,6 +13,7 @@ Since Redis `5.0.0`, you can use `REPLICAOF` command to replicate data from one 
 
 This application is developed for the older version of Redis or AWS ElastiCache instances that do not support `REPLICAOF` command ([AWS docs](https://docs.aws.amazon.com/AmazonElastiCache/latest/red-ug/RestrictedCommands.html)). 
 
+(_This repo is forked from [opstree/redis-migration](https://github.com/opstree/redis-migration). The original repo has been inactive for over 3 years, so I decided to continue its development without creating pull requests.)_
 ### Supported key types:
 - String
 - Hash
