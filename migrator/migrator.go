@@ -109,12 +109,10 @@ func migrateList(oldClient redis.Conn, newClient redis.Conn, key string) error {
 		logrus.Errorf("Not able to get the elements for key %s: %v", key, err)
 	}
 	var data = []interface{}{key}
-	for i := len(elements) - 1; i >= 0; i-- {
-		data = append(data, elements[i])
+	for _, element := range elements {
+		data = append(data, element)
 	}
-	// LPUSH: Elements are inserted one after the other to the head of the list, from the leftmost element to the rightmost element.
-	// So for instance the command LPUSH mylist a b c will result into a list containing c as first element, b as second element and a as third element
-	_, err = newClient.Do("LPUSH", data...)
+	_, err = newClient.Do("RPUSH", data...)
 	if err != nil {
 		return fmt.Errorf("error while pushing list keys %v", err)
 	}
